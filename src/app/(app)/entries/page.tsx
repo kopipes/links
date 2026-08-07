@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import Link from 'next/link'
-import { useAuth, useIsPrivileged } from '@/lib/auth-context'
+import { useIsPrivileged } from '@/lib/auth-context'
 import type { EntryWithDetails, Category } from '@/types'
 
 interface EntriesResult {
@@ -13,7 +13,7 @@ interface EntriesResult {
 
 const SOURCE_ICONS: Record<string, string> = { canva: '🎨', gdrive: '📁', other: '🔗' }
 
-function EntryCard({
+const EntryCard = memo(function EntryCard({
   entry,
   onFavoriteToggle,
 }: {
@@ -92,7 +92,7 @@ function EntryCard({
       </div>
     </div>
   )
-}
+})
 
 export default function EntriesPage() {
   const [entries, setEntries] = useState<EntryWithDetails[]>([])
@@ -125,7 +125,16 @@ export default function EntriesPage() {
     fetch('/api/categories').then((r) => r.json()).then(setCategories).catch(() => {})
   }, [])
 
+  const abortRef = useRef<AbortController | null>(null)
+
   const fetchEntries = useCallback(async (cursor?: number) => {
+    // Cancel any in-flight request
+    if (!cursor) {
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
+    }
+    const signal = abortRef.current?.signal
+
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     params.set('sort', sort)
@@ -133,12 +142,17 @@ export default function EntriesPage() {
     if (favoritesOnly) params.set('favorites_only', 'true')
     if (cursor) params.set('cursor', String(cursor))
 
-    const res = await fetch(`/api/entries?${params}`)
-    const data: EntriesResult = await res.json()
-    if (cursor) setEntries((prev) => [...prev, ...data.items])
-    else setEntries(data.items)
-    setNextCursor(data.nextCursor)
-    setTotal(data.total)
+    try {
+      const res = await fetch(`/api/entries?${params}`, { signal })
+      if (!res.ok) return
+      const data: EntriesResult = await res.json()
+      if (cursor) setEntries((prev) => [...prev, ...data.items])
+      else setEntries(data.items)
+      setNextCursor(data.nextCursor)
+      setTotal(data.total)
+    } catch (err: any) {
+      if (err.name === 'AbortError') return // stale request, ignore
+    }
   }, [q, sort, categoryId, favoritesOnly])
 
   useEffect(() => {
@@ -153,11 +167,11 @@ export default function EntriesPage() {
     setLoadingMore(false)
   }
 
-  async function handleFavoriteToggle(entryId: number) {
+  const handleFavoriteToggle = useCallback(async (entryId: number) => {
     const res = await fetch(`/api/entries/${entryId}/favorite`, { method: 'POST' })
     const { favorited } = await res.json()
     setEntries((prev) => prev.map((e) => e.id === entryId ? { ...e, is_favorited: favorited } : e))
-  }
+  }, [])
 
   return (
     <div className="space-y-5">

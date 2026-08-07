@@ -16,35 +16,75 @@ import type Database from 'better-sqlite3'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function hydrateEntry(
-  db: Database.Database,
-  row: Entry & { category_name?: string | null; creator_name?: string },
-  userId: number | null,
-  isPrivileged: boolean
-): EntryWithDetails {
-  const tags = db
+/** Batch-load tags for a set of entry IDs — single query instead of N queries */
+function batchLoadTags(db: Database.Database, entryIds: number[]): Map<number, Tag[]> {
+  if (!entryIds.length) return new Map()
+  const placeholders = entryIds.map(() => '?').join(',')
+  const rows = db
     .prepare(
-      `SELECT t.id, t.name FROM tags t
-       JOIN entry_tags et ON et.tag_id = t.id
-       WHERE et.entry_id = ?
-       ORDER BY t.name`
+      `SELECT et.entry_id, t.id, t.name
+       FROM entry_tags et JOIN tags t ON t.id = et.tag_id
+       WHERE et.entry_id IN (${placeholders})
+       ORDER BY et.entry_id, t.name`
     )
-    .all(row.id) as Tag[]
+    .all(...entryIds) as { entry_id: number; id: number; name: string }[]
 
-  const linksQuery = isPrivileged
-    ? `SELECT * FROM entry_links WHERE entry_id = ? ORDER BY sort_order, id`
-    : `SELECT * FROM entry_links WHERE entry_id = ? AND visibility = 'public' ORDER BY sort_order, id`
-
-  const links = db.prepare(linksQuery).all(row.id) as EntryLink[]
-
-  let is_favorited = false
-  if (userId) {
-    const fav = db
-      .prepare('SELECT 1 FROM favorites WHERE user_id = ? AND entry_id = ?')
-      .get(userId, row.id)
-    is_favorited = !!fav
+  const map = new Map<number, Tag[]>()
+  for (const row of rows) {
+    if (!map.has(row.entry_id)) map.set(row.entry_id, [])
+    map.get(row.entry_id)!.push({ id: row.id, name: row.name })
   }
+  return map
+}
 
+/** Batch-load links for a set of entry IDs — single query instead of N queries */
+function batchLoadLinks(
+  db: Database.Database,
+  entryIds: number[],
+  isPrivileged: boolean
+): Map<number, EntryLink[]> {
+  if (!entryIds.length) return new Map()
+  const placeholders = entryIds.map(() => '?').join(',')
+  const visFilter = isPrivileged ? '' : `AND visibility = 'public'`
+  const rows = db
+    .prepare(
+      `SELECT * FROM entry_links
+       WHERE entry_id IN (${placeholders}) ${visFilter}
+       ORDER BY entry_id, sort_order, id`
+    )
+    .all(...entryIds) as EntryLink[]
+
+  const map = new Map<number, EntryLink[]>()
+  for (const row of rows) {
+    if (!map.has(row.entry_id)) map.set(row.entry_id, [])
+    map.get(row.entry_id)!.push(row)
+  }
+  return map
+}
+
+/** Batch-load favorites for a set of entry IDs — single query */
+function batchLoadFavorites(
+  db: Database.Database,
+  entryIds: number[],
+  userId: number
+): Set<number> {
+  if (!entryIds.length) return new Set()
+  const placeholders = entryIds.map(() => '?').join(',')
+  const rows = db
+    .prepare(
+      `SELECT entry_id FROM favorites
+       WHERE user_id = ? AND entry_id IN (${placeholders})`
+    )
+    .all(userId, ...entryIds) as { entry_id: number }[]
+  return new Set(rows.map((r) => r.entry_id))
+}
+
+function hydrateEntry(
+  row: Entry & { category_name?: string | null; creator_name?: string },
+  tags: Tag[],
+  links: EntryLink[],
+  is_favorited: boolean
+): EntryWithDetails {
   return {
     ...row,
     category_name: row.category_name ?? null,
@@ -67,10 +107,10 @@ export function getEntries(
 
   let baseWhere = isPrivileged
     ? `e.status != 'deleted'`
-    : `e.status = 'active' AND (
-        SELECT COUNT(*) FROM entry_links el
+    : `e.status = 'active' AND EXISTS (
+        SELECT 1 FROM entry_links el
         WHERE el.entry_id = e.id AND el.visibility = 'public'
-       ) > 0`
+       )`
 
   const args: (string | number)[] = []
 
@@ -178,7 +218,15 @@ export function getEntries(
   const hasMore = rows.length > limit
   if (hasMore) rows.pop()
 
-  const items = rows.map((r) => hydrateEntry(db, r, userId, isPrivileged))
+  // Batch load tags, links, favorites — 3 queries total regardless of page size
+  const entryIds = rows.map((r) => r.id)
+  const tagsMap = batchLoadTags(db, entryIds)
+  const linksMap = batchLoadLinks(db, entryIds, isPrivileged)
+  const favSet = userId ? batchLoadFavorites(db, entryIds, userId) : new Set<number>()
+
+  const items = rows.map((r) =>
+    hydrateEntry(r, tagsMap.get(r.id) ?? [], linksMap.get(r.id) ?? [], favSet.has(r.id))
+  )
 
   return {
     items,
@@ -217,7 +265,11 @@ export function getEntryById(
   // Increment view count
   db.prepare('UPDATE entries SET view_count = view_count + 1 WHERE id = ?').run(id)
 
-  return hydrateEntry(db, row, userId, isPrivileged)
+  const tagsMap = batchLoadTags(db, [id])
+  const linksMap = batchLoadLinks(db, [id], isPrivileged)
+  const favSet = userId ? batchLoadFavorites(db, [id], userId) : new Set<number>()
+
+  return hydrateEntry(row, tagsMap.get(id) ?? [], linksMap.get(id) ?? [], favSet.has(id))
 }
 
 export function createEntry(
@@ -576,12 +628,30 @@ export function getBrokenLinks() {
 
 export function getAdminStats() {
   const db = getDb()
-  const totalEntries = (db.prepare(`SELECT COUNT(*) as n FROM entries WHERE status = 'active'`).get() as { n: number }).n
-  const archivedEntries = (db.prepare(`SELECT COUNT(*) as n FROM entries WHERE status = 'archived'`).get() as { n: number }).n
-  const totalUsers = countUsers()
-  const brokenLinks = (db.prepare(`SELECT COUNT(*) as n FROM entry_links WHERE link_status = 'broken'`).get() as { n: number }).n
-  const uncheckedLinks = (db.prepare(`SELECT COUNT(*) as n FROM entry_links WHERE link_status = 'unchecked'`).get() as { n: number }).n
-  return { totalEntries, archivedEntries, totalUsers, brokenLinks, uncheckedLinks }
+  // Single query for all stats instead of 5 separate queries
+  const row = db.prepare(`
+    SELECT
+      SUM(CASE WHEN status = 'active'   THEN 1 ELSE 0 END) as totalEntries,
+      SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) as archivedEntries
+    FROM entries
+  `).get() as { totalEntries: number; archivedEntries: number }
+
+  const linkRow = db.prepare(`
+    SELECT
+      SUM(CASE WHEN link_status = 'broken'    THEN 1 ELSE 0 END) as brokenLinks,
+      SUM(CASE WHEN link_status = 'unchecked' THEN 1 ELSE 0 END) as uncheckedLinks
+    FROM entry_links
+  `).get() as { brokenLinks: number; uncheckedLinks: number }
+
+  const totalUsers = (db.prepare(`SELECT COUNT(*) as n FROM users WHERE status = 'active'`).get() as { n: number }).n
+
+  return {
+    totalEntries: row.totalEntries ?? 0,
+    archivedEntries: row.archivedEntries ?? 0,
+    totalUsers,
+    brokenLinks: linkRow.brokenLinks ?? 0,
+    uncheckedLinks: linkRow.uncheckedLinks ?? 0,
+  }
 }
 
 export function updateLinkStatus(linkId: number, status: 'ok' | 'broken' | 'unchecked') {

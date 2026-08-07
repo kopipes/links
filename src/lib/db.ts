@@ -16,6 +16,10 @@ export function getDb(): Database.Database {
     _db = new Database(DB_PATH)
     _db.pragma('journal_mode = WAL')
     _db.pragma('foreign_keys = ON')
+    _db.pragma('cache_size = -8000')      // 8MB page cache
+    _db.pragma('temp_store = MEMORY')     // temp tables in memory
+    _db.pragma('mmap_size = 67108864')    // 64MB memory-mapped I/O
+    _db.pragma('synchronous = NORMAL')    // safe with WAL, faster than FULL
     runMigrations(_db)
   }
   return _db
@@ -153,6 +157,16 @@ const MIGRATIONS: [string, string][] = [
     );
     `,
   ],
+  [
+    '003_perf_indexes',
+    `
+    -- Composite indexes for common sort+filter patterns
+    CREATE INDEX IF NOT EXISTS idx_entries_status_created ON entries(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_entries_status_views   ON entries(status, view_count DESC);
+    CREATE INDEX IF NOT EXISTS idx_entries_status_title   ON entries(status, title);
+    CREATE INDEX IF NOT EXISTS idx_entry_links_entry_vis  ON entry_links(entry_id, visibility);
+    `,
+  ],
 ]
 
 /** Rebuild the FTS index for a single entry (call after insert/update) */
@@ -186,7 +200,6 @@ export function indexEntry(db: Database.Database, entryId: number) {
 
   const allLabels = links.map((l) => l.label).join(' ')
 
-  // Remove old row then insert new
   db.prepare("DELETE FROM entries_fts WHERE entry_id = ?").run(entryId)
   db.prepare(
     `INSERT INTO entries_fts (entry_id, title, description, tags, public_link_labels, all_link_labels)
