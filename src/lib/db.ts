@@ -116,7 +116,7 @@ const MIGRATIONS: [string, string][] = [
       PRIMARY KEY (user_id, entry_id)
     );
 
-    -- FTS5 virtual table for full-text search
+    -- FTS5 virtual table for full-text search (content stored directly)
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
       entry_id UNINDEXED,
       title,
@@ -124,7 +124,6 @@ const MIGRATIONS: [string, string][] = [
       tags,
       public_link_labels,
       all_link_labels,
-      content='',
       tokenize='unicode61'
     );
 
@@ -136,6 +135,22 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_entry_links_url     ON entry_links(url);
     CREATE INDEX IF NOT EXISTS idx_entry_tags_tag      ON entry_tags(tag_id);
     CREATE INDEX IF NOT EXISTS idx_favorites_user      ON favorites(user_id);
+    `,
+  ],
+  [
+    '002_fix_fts',
+    `
+    -- Drop and recreate FTS table without content='' (contentless mode stored nulls)
+    DROP TABLE IF EXISTS entries_fts;
+    CREATE VIRTUAL TABLE entries_fts USING fts5(
+      entry_id UNINDEXED,
+      title,
+      description,
+      tags,
+      public_link_labels,
+      all_link_labels,
+      tokenize='unicode61'
+    );
     `,
   ],
 ]
