@@ -109,10 +109,15 @@ export default function EntriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Debounce search input → update q after 400ms
+  // Debounce search input → update q after 400ms, min 2 chars
   function handleSearchInput(value: string) {
     setSearchInput(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (value.length === 0) {
+      setQ('')
+      return
+    }
+    if (value.length < 2) return
     debounceRef.current = setTimeout(() => setQ(value), 400)
   }
 
@@ -170,14 +175,8 @@ export default function EntriesPage() {
           className="w-full border border-gray-200 bg-white rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 shadow-sm placeholder-gray-400"
           aria-label="Search entries"
         />
-        {searchInput && (
-          <button
-            onClick={() => { setSearchInput(''); setQ('') }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="Clear search"
-          >
-            ✕
-          </button>
+        {searchInput && searchInput.length < 2 && (
+          <p className="text-xs text-gray-400 mt-1 ml-1">Type at least 2 characters to search</p>
         )}
       </div>
 
