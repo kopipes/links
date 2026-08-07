@@ -118,7 +118,7 @@ const MIGRATIONS: [string, string][] = [
 
     -- FTS5 virtual table for full-text search (content stored directly)
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
-      entry_id UNINDEXED,
+      entry_id,
       title,
       description,
       tags,
@@ -143,7 +143,7 @@ const MIGRATIONS: [string, string][] = [
     -- Drop and recreate FTS table without content='' (contentless mode stored nulls)
     DROP TABLE IF EXISTS entries_fts;
     CREATE VIRTUAL TABLE entries_fts USING fts5(
-      entry_id UNINDEXED,
+      entry_id,
       title,
       description,
       tags,
