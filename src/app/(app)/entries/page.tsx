@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth, useIsPrivileged } from '@/lib/auth-context'
 import type { EntryWithDetails, Category } from '@/types'
@@ -107,6 +107,14 @@ export default function EntriesPage() {
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Debounce search input → update q after 400ms
+  function handleSearchInput(value: string) {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setQ(value), 400)
+  }
 
   useEffect(() => {
     fetch('/api/categories').then((r) => r.json()).then(setCategories).catch(() => {})
@@ -146,32 +154,32 @@ export default function EntriesPage() {
     setEntries((prev) => prev.map((e) => e.id === entryId ? { ...e, is_favorited: favorited } : e))
   }
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    setQ(searchInput)
-  }
-
   return (
     <div className="space-y-5">
-      {/* Search bar */}
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <input
-            type="search"
-            placeholder="Search titles, descriptions, tags, links…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full border border-gray-200 bg-white rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 shadow-sm placeholder-gray-400"
-          />
-        </div>
-        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-          Search
-        </button>
-      </form>
+      {/* Search bar - auto search on type */}
+      <div className="relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        <input
+          type="search"
+          placeholder="Search titles, descriptions, tags, links…"
+          value={searchInput}
+          onChange={(e) => handleSearchInput(e.target.value)}
+          className="w-full border border-gray-200 bg-white rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 shadow-sm placeholder-gray-400"
+          aria-label="Search entries"
+        />
+        {searchInput && (
+          <button
+            onClick={() => { setSearchInput(''); setQ('') }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -207,15 +215,6 @@ export default function EntriesPage() {
           />
           Favorites only
         </label>
-
-        {q && (
-          <button
-            onClick={() => { setQ(''); setSearchInput('') }}
-            className="text-sm text-gray-400 hover:text-gray-700 flex items-center gap-1 border border-gray-200 rounded-lg px-2.5 py-1 hover:bg-gray-50 transition-colors"
-          >
-            ✕ Clear
-          </button>
-        )}
 
         <div className="ml-auto">
           <Link
