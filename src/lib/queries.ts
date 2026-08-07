@@ -101,36 +101,33 @@ export function getEntries(
 
   // Full-text search
   if (params.q && params.q.trim()) {
-    const term = params.q.trim().replace(/["*]/g, '') + '*'
-    const ftsCol = isPrivileged ? 'all_link_labels' : 'public_link_labels'
+    const term = params.q.trim().replace(/["'*]/g, '').trim()
+    if (term) {
+      const ftsCol = isPrivileged ? 'all_link_labels' : 'public_link_labels'
+      // Use column filter with prefix wildcard - no quotes so * works
+      const ftsQuery = `{title description tags ${ftsCol}} : ${term}*`
 
-    // Use FTS5 column filter syntax: {col1 col2 col3} : term
-    const ftsQuery = `{title description tags ${ftsCol}} : "${term}"`
-
-    let ftsIds: { entry_id: number }[] = []
-    try {
-      ftsIds = db
-        .prepare(
-          `SELECT entry_id FROM entries_fts
-           WHERE entries_fts MATCH ?
-           ORDER BY rank`
-        )
-        .all(ftsQuery) as { entry_id: number }[]
-    } catch {
-      // Fallback: plain match without column filter
+      let ftsIds: { entry_id: number }[] = []
       try {
         ftsIds = db
           .prepare(`SELECT entry_id FROM entries_fts WHERE entries_fts MATCH ? ORDER BY rank`)
-          .all(`"${term}"`) as { entry_id: number }[]
+          .all(ftsQuery) as { entry_id: number }[]
       } catch {
-        ftsIds = []
+        // Fallback: plain prefix match
+        try {
+          ftsIds = db
+            .prepare(`SELECT entry_id FROM entries_fts WHERE entries_fts MATCH ? ORDER BY rank`)
+            .all(`${term}*`) as { entry_id: number }[]
+        } catch {
+          ftsIds = []
+        }
       }
+
+      if (!ftsIds.length) return { items: [], nextCursor: null, total: 0 }
+
+      const idList = ftsIds.map((r) => r.entry_id).join(',')
+      baseWhere += ` AND e.id IN (${idList})`
     }
-
-    if (!ftsIds.length) return { items: [], nextCursor: null, total: 0 }
-
-    const idList = ftsIds.map((r) => r.entry_id).join(',')
-    baseWhere += ` AND e.id IN (${idList})`
   }
 
   // Cursor pagination
