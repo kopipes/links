@@ -3,7 +3,7 @@ export type UserStatus = 'active' | 'deactivated'
 export type EntryStatus = 'active' | 'archived' | 'deleted'
 export type LinkStatus = 'ok' | 'broken' | 'unchecked'
 export type LinkVisibility = 'public' | 'protected'
-export type SourceType = 'canva' | 'gdrive' | 'other'
+export type SourceType = 'canva' | 'gdrive' | 'gsheets' | 'gdocs' | 'other'
 
 export interface User {
   id: number

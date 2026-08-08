@@ -7,7 +7,7 @@ import { useAuth, useIsPrivileged } from '@/lib/auth-context'
 import { canManageEntry } from '@/lib/auth'
 import type { EntryWithDetails, EntryLink } from '@/types'
 
-const SOURCE_ICONS: Record<string, string> = { canva: '🎨', gdrive: '📁', other: '🔗' }
+const SOURCE_ICONS: Record<string, string> = { canva: '🎨', gdrive: '📁', gsheets: '📊', gdocs: '📄', other: '🔗' }
 
 function LinkStatusBadge({
   link,

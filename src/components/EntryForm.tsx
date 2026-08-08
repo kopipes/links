@@ -9,6 +9,8 @@ const SOURCE_TYPES = [
   { value: 'other', label: '🔗 Link' },
   { value: 'canva', label: '🎨 Canva' },
   { value: 'gdrive', label: '📁 Google Drive' },
+  { value: 'gsheets', label: '📊 Google Sheets' },
+  { value: 'gdocs', label: '📄 Google Docs' },
 ]
 
 interface LinkField {

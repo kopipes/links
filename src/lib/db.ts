@@ -167,9 +167,31 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_entry_links_entry_vis  ON entry_links(entry_id, visibility);
     `,
   ],
+  [
+    '004_more_source_types',
+    `
+    -- Expand source_type CHECK constraint to include gsheets, gdocs
+    CREATE TABLE IF NOT EXISTS entry_links_new (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_id        INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+      url             TEXT    NOT NULL,
+      label           TEXT    NOT NULL,
+      source_type     TEXT    NOT NULL DEFAULT 'other' CHECK(source_type IN ('canva','gdrive','gsheets','gdocs','other')),
+      sort_order      INTEGER NOT NULL DEFAULT 0,
+      link_status     TEXT    NOT NULL DEFAULT 'unchecked' CHECK(link_status IN ('ok','broken','unchecked')),
+      last_checked_at TEXT,
+      visibility      TEXT    NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','protected')),
+      created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO entry_links_new SELECT * FROM entry_links;
+    DROP TABLE entry_links;
+    ALTER TABLE entry_links_new RENAME TO entry_links;
+    CREATE INDEX IF NOT EXISTS idx_entry_links_entry     ON entry_links(entry_id);
+    CREATE INDEX IF NOT EXISTS idx_entry_links_url       ON entry_links(url);
+    CREATE INDEX IF NOT EXISTS idx_entry_links_entry_vis ON entry_links(entry_id, visibility);
+    `,
+  ],
 ]
-
-/** Rebuild the FTS index for a single entry (call after insert/update) */
 export function indexEntry(db: Database.Database, entryId: number) {
   const entry = db
     .prepare('SELECT id, title, description FROM entries WHERE id = ?')

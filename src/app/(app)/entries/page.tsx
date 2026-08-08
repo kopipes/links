@@ -11,7 +11,7 @@ interface EntriesResult {
   total: number
 }
 
-const SOURCE_ICONS: Record<string, string> = { canva: '🎨', gdrive: '📁', other: '🔗' }
+const SOURCE_ICONS: Record<string, string> = { canva: '🎨', gdrive: '📁', gsheets: '📊', gdocs: '📄', other: '🔗' }
 
 const EntryCard = memo(function EntryCard({
   entry,
