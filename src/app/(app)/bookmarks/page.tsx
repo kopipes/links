@@ -23,15 +23,87 @@ const BookmarkCard = memo(function BookmarkCard({
   bookmark,
   onFavorite,
   onDelete,
+  onUpdate,
   canManage,
+  categories,
 }: {
   bookmark: Bookmark
   onFavorite: (id: number) => void
   onDelete: (id: number) => void
+  onUpdate: (id: number, data: { title: string; url: string; description: string | null; category_id: number | null }) => void
   canManage: boolean
+  categories: BookmarkCategory[]
 }) {
   const [imgError, setImgError] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(bookmark.title)
+  const [editUrl, setEditUrl] = useState(bookmark.url)
+  const [editDesc, setEditDesc] = useState(bookmark.description ?? '')
+  const [editCat, setEditCat] = useState<number | ''>(bookmark.category_id ?? '')
+  const [saving, setSaving] = useState(false)
   const favicon = getFaviconUrl(bookmark.url)
+
+  function startEdit() {
+    setEditTitle(bookmark.title)
+    setEditUrl(bookmark.url)
+    setEditDesc(bookmark.description ?? '')
+    setEditCat(bookmark.category_id ?? '')
+    setEditing(true)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editTitle.trim() || !editUrl.trim()) return
+    setSaving(true)
+    await onUpdate(bookmark.id, {
+      title: editTitle.trim(),
+      url: editUrl.trim(),
+      description: editDesc.trim() || null,
+      category_id: editCat ? Number(editCat) : null,
+    })
+    setSaving(false)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={handleSave} className="bg-white border border-indigo-300 rounded-xl p-4 space-y-3 shadow-sm">
+        <p className="text-xs font-semibold text-gray-600">Edit bookmark</p>
+        <div className="space-y-2">
+          <input
+            autoFocus required value={editTitle} onChange={e => setEditTitle(e.target.value)}
+            placeholder="Title"
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <input
+            required type="url" value={editUrl} onChange={e => setEditUrl(e.target.value)}
+            placeholder="https://…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <input
+            value={editDesc} onChange={e => setEditDesc(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <select
+            value={editCat} onChange={e => setEditCat(e.target.value ? Number(e.target.value) : '')}
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">No category</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" disabled={saving} className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="text-xs border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+            Cancel
+          </button>
+        </div>
+      </form>
+    )
+  }
 
   return (
     <div className="group bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 flex flex-col gap-2.5">
@@ -75,13 +147,21 @@ const BookmarkCard = memo(function BookmarkCard({
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-300">{bookmark.view_count}v</span>
           {canManage && (
-            <button
-              onClick={() => onDelete(bookmark.id)}
-              className="opacity-0 group-hover:opacity-100 text-xs text-red-400 hover:text-red-600 transition-all"
-              aria-label="Delete bookmark"
-            >
-              ✕
-            </button>
+            <>
+              <button
+                onClick={startEdit}
+                className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-1.5 py-0.5 rounded transition-all"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => onDelete(bookmark.id)}
+                className="opacity-0 group-hover:opacity-100 text-xs text-red-400 hover:text-red-600 transition-all"
+                aria-label="Delete bookmark"
+              >
+                ✕
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -172,6 +252,18 @@ export default function BookmarksPage() {
     await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
     setBookmarks(prev => prev.filter(b => b.id !== id))
     setTotal(t => t - 1)
+  }
+
+  async function handleUpdate(id: number, data: { title: string; url: string; description: string | null; category_id: number | null }) {
+    const res = await fetch(`/api/bookmarks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setBookmarks(prev => prev.map(b => b.id === id ? { ...updated, is_favorited: b.is_favorited } : b))
+    }
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -384,7 +476,9 @@ export default function BookmarksPage() {
                   bookmark={b}
                   onFavorite={handleFavorite}
                   onDelete={handleDelete}
+                  onUpdate={handleUpdate}
                   canManage={canManage || b.created_by === user?.id}
+                  categories={categories}
                 />
               ))}
             </div>
