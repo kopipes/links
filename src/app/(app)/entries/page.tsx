@@ -23,72 +23,68 @@ const EntryCard = memo(function EntryCard({
   const isPrivileged = useIsPrivileged()
 
   return (
-    <div className="group bg-white border border-gray-200 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-md transition-all duration-200 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          {entry.category_name && (
-            <span className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-0.5 mb-1.5">
-              {entry.category_name}
-            </span>
-          )}
-          <Link
-            href={`/entries/${entry.id}`}
-            className="font-semibold text-gray-900 hover:text-indigo-700 line-clamp-2 transition-colors leading-snug block"
-          >
-            {entry.title}
-          </Link>
-        </div>
-        <button
-          onClick={() => onFavoriteToggle(entry.id)}
-          aria-label={entry.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
-          className={`flex-shrink-0 mt-0.5 text-lg transition-all duration-150 hover:scale-110 ${
-            entry.is_favorited ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
-          }`}
+    <div className="group bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 flex items-center gap-3">
+
+      {/* Favorite */}
+      <button
+        onClick={() => onFavoriteToggle(entry.id)}
+        aria-label={entry.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+        className={`flex-shrink-0 text-base transition-all duration-150 hover:scale-110 ${
+          entry.is_favorited ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
+        }`}
+      >
+        ★
+      </button>
+
+      {/* Title + category */}
+      <div className="flex-shrink-0 w-56 min-w-0">
+        <Link
+          href={`/entries/${entry.id}`}
+          className="text-sm font-semibold text-gray-900 hover:text-indigo-700 truncate block transition-colors"
         >
-          ★
-        </button>
+          {entry.title}
+        </Link>
+        {entry.category_name && (
+          <span className="text-xs text-indigo-500 font-medium truncate block">{entry.category_name}</span>
+        )}
       </div>
 
-      {/* Description */}
-      {entry.description && (
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{entry.description}</p>
-      )}
-
       {/* Links */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
         {entry.links.map((link) => (
           <a
             key={link.id}
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 text-gray-600 hover:text-indigo-700 rounded-lg px-2.5 py-1.5 transition-all duration-150"
+            className="inline-flex items-center gap-1 text-xs font-medium bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 text-gray-600 hover:text-indigo-700 rounded-md px-2 py-1 transition-all duration-150"
           >
-            <span className="text-sm leading-none">{SOURCE_ICONS[link.source_type] ?? '🔗'}</span>
-            <span className="truncate max-w-[140px]">{link.label}</span>
+            <span className="leading-none">{SOURCE_ICONS[link.source_type] ?? '🔗'}</span>
+            <span className="truncate max-w-[120px]">{link.label}</span>
             {isPrivileged && link.visibility === 'protected' && (
-              <span className="text-amber-500 ml-0.5" title="Protected">🔒</span>
+              <span className="text-amber-500" title="Protected">🔒</span>
             )}
           </a>
         ))}
       </div>
 
       {/* Tags */}
-      {entry.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {entry.tags.map((tag) => (
-            <span key={tag.id} className="text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-1">
-              {tag.name}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="hidden lg:flex flex-wrap gap-1 flex-shrink-0 max-w-[180px]">
+        {entry.tags.slice(0, 3).map((tag) => (
+          <span key={tag.id} className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
+            {tag.name}
+          </span>
+        ))}
+        {entry.tags.length > 3 && (
+          <span className="text-xs text-gray-300">+{entry.tags.length - 3}</span>
+        )}
+      </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-1 mt-auto border-t border-gray-100">
-        <span className="text-xs text-gray-400">{entry.creator_name}</span>
-        <span className="text-xs text-gray-300">{entry.view_count} views</span>
+      {/* Meta */}
+      <div className="hidden sm:flex flex-shrink-0 text-xs text-gray-300 gap-2 items-center">
+        <span>{entry.creator_name}</span>
+        <span>·</span>
+        <span>{entry.view_count}v</span>
       </div>
     </div>
   )
@@ -248,11 +244,11 @@ export default function EntriesPage() {
         </p>
       </div>
 
-      {/* Grid */}
+      {/* List */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 animate-pulse h-52" />
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-xl p-3 animate-pulse h-12" />
           ))}
         </div>
       ) : entries.length === 0 ? (
@@ -265,7 +261,7 @@ export default function EntriesPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-2">
             {entries.map((entry) => (
               <EntryCard key={entry.id} entry={entry} onFavoriteToggle={handleFavoriteToggle} />
             ))}
