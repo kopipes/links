@@ -314,23 +314,41 @@ export default function BookmarksPage() {
   const canManage = user?.role === 'admin' || user?.role === 'curator'
 
   return (
-    <div className="flex gap-6">
-      {/* Sidebar */}
-      <aside className="w-52 flex-shrink-0 space-y-1">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 mb-2">Categories</p>
+    <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+      {/* Mobile: horizontal filter pills */}
+      <div className="sm:hidden flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+        <button
+          onClick={() => { setSelectedCat(null); setFavoritesOnly(false) }}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${!selectedCat && !favoritesOnly ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}
+        >All</button>
+        <button
+          onClick={() => { setFavoritesOnly(true); setSelectedCat(null) }}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${favoritesOnly ? 'bg-amber-400 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}
+        >★ Favorites</button>
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => { setSelectedCat(cat.id); setFavoritesOnly(false) }}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCat === cat.id ? 'text-white' : 'bg-white border border-gray-200 text-gray-600'}`}
+            style={selectedCat === cat.id ? { background: cat.color } : undefined}
+          >
+            <span className="w-2 h-2 rounded-full" style={{ background: cat.color }} />
+            {cat.name}
+          </button>
+        ))}
+      </div>
 
+      {/* Desktop: sidebar */}
+      <aside className="hidden sm:block w-52 flex-shrink-0 space-y-1">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 mb-2">Categories</p>
         <button
           onClick={() => { setSelectedCat(null); setFavoritesOnly(false) }}
           className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!selectedCat && !favoritesOnly ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          All bookmarks
-        </button>
+        >All bookmarks</button>
         <button
           onClick={() => { setFavoritesOnly(true); setSelectedCat(null) }}
           className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${favoritesOnly ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          ★ Favorites
-        </button>
+        >★ Favorites</button>
 
         <div className="border-t border-gray-100 pt-2 mt-2 space-y-0.5">
           {categories.map((cat) => (
@@ -346,32 +364,20 @@ export default function BookmarksPage() {
                 onClick={() => handleDeleteCategory(cat.id)}
                 className="opacity-0 group-hover:opacity-100 text-xs text-gray-300 hover:text-red-500 px-1 transition-all"
                 aria-label="Delete category"
-              >
-                ✕
-              </button>
+              >✕</button>
             </div>
           ))}
         </div>
 
-        {/* Add category */}
         {showCatForm ? (
           <form onSubmit={handleAddCategory} className="mt-2 space-y-2 px-1">
-            <input
-              autoFocus
-              value={catName}
-              onChange={e => setCatName(e.target.value)}
-              placeholder="Category name"
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <input autoFocus value={catName} onChange={e => setCatName(e.target.value)} placeholder="Category name"
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             <div className="flex flex-wrap gap-1">
               {COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCatColor(c)}
+                <button key={c} type="button" onClick={() => setCatColor(c)}
                   className={`w-5 h-5 rounded-full transition-transform ${catColor === c ? 'scale-125 ring-2 ring-offset-1 ring-gray-400' : ''}`}
-                  style={{ background: c }}
-                />
+                  style={{ background: c }} />
               ))}
             </div>
             <div className="flex gap-1">
@@ -380,10 +386,8 @@ export default function BookmarksPage() {
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => setShowCatForm(true)}
-            className="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors"
-          >
+          <button onClick={() => setShowCatForm(true)}
+            className="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors">
             + Add category
           </button>
         )}

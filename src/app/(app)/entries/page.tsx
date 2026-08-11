@@ -23,30 +23,33 @@ const EntryCard = memo(function EntryCard({
   const isPrivileged = useIsPrivileged()
 
   return (
-    <div className="group bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 flex items-center gap-3">
+    <div className="group bg-white border border-gray-200 rounded-xl px-3 py-3 hover:border-indigo-200 hover:shadow-sm transition-all duration-150 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
 
-      {/* Favorite */}
-      <button
-        onClick={() => onFavoriteToggle(entry.id)}
-        aria-label={entry.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
-        className={`flex-shrink-0 text-base transition-all duration-150 hover:scale-110 ${
-          entry.is_favorited ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
-        }`}
-      >
-        ★
-      </button>
-
-      {/* Title + category */}
-      <div className="flex-shrink-0 w-56 min-w-0">
-        <Link
-          href={`/entries/${entry.id}`}
-          className="text-sm font-semibold text-gray-900 hover:text-indigo-700 truncate block transition-colors"
+      {/* Mobile: title + fav row */}
+      <div className="flex items-center gap-2 sm:contents">
+        {/* Favorite */}
+        <button
+          onClick={() => onFavoriteToggle(entry.id)}
+          aria-label={entry.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+          className={`flex-shrink-0 text-base transition-all duration-150 hover:scale-110 ${
+            entry.is_favorited ? 'text-amber-400' : 'text-gray-200 hover:text-amber-300'
+          }`}
         >
-          {entry.title}
-        </Link>
-        {entry.category_name && (
-          <span className="text-xs text-indigo-500 font-medium truncate block">{entry.category_name}</span>
-        )}
+          ★
+        </button>
+
+        {/* Title + category */}
+        <div className="flex-1 sm:flex-shrink-0 sm:w-56 min-w-0">
+          <Link
+            href={`/entries/${entry.id}`}
+            className="text-sm font-semibold text-gray-900 hover:text-indigo-700 truncate block transition-colors"
+          >
+            {entry.title}
+          </Link>
+          {entry.category_name && (
+            <span className="text-xs text-indigo-500 font-medium truncate block">{entry.category_name}</span>
+          )}
+        </div>
       </div>
 
       {/* Links */}
@@ -68,7 +71,7 @@ const EntryCard = memo(function EntryCard({
         ))}
       </div>
 
-      {/* Tags */}
+      {/* Tags — hidden on small screens */}
       <div className="hidden lg:flex flex-wrap gap-1 flex-shrink-0 max-w-[180px]">
         {entry.tags.slice(0, 3).map((tag) => (
           <span key={tag.id} className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
@@ -80,7 +83,7 @@ const EntryCard = memo(function EntryCard({
         )}
       </div>
 
-      {/* Meta */}
+      {/* Meta — hidden on small screens */}
       <div className="hidden sm:flex flex-shrink-0 text-xs text-gray-300 gap-2 items-center">
         <span>{entry.creator_name}</span>
         <span>·</span>
