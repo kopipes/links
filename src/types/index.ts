@@ -4,6 +4,31 @@ export type EntryStatus = 'active' | 'archived' | 'deleted'
 export type LinkStatus = 'ok' | 'broken' | 'unchecked'
 export type LinkVisibility = 'public' | 'protected'
 export type SourceType = 'canva' | 'gdrive' | 'gsheets' | 'gdocs' | 'other'
+export type BookmarkStatus = 'active' | 'archived'
+
+export interface BookmarkCategory {
+  id: number
+  name: string
+  color: string
+  created_by: number
+  created_at: string
+}
+
+export interface Bookmark {
+  id: number
+  title: string
+  url: string
+  description: string | null
+  category_id: number | null
+  category_name: string | null
+  created_by: number
+  creator_name: string
+  status: BookmarkStatus
+  view_count: number
+  is_favorited?: boolean
+  created_at: string
+  updated_at: string
+}
 
 export interface User {
   id: number

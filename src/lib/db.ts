@@ -191,6 +191,44 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_entry_links_entry_vis ON entry_links(entry_id, visibility);
     `,
   ],
+  [
+    '005_bookmarks',
+    `
+    CREATE TABLE IF NOT EXISTS bookmark_categories (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT    NOT NULL UNIQUE,
+      color      TEXT    NOT NULL DEFAULT '#6366f1',
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      title       TEXT    NOT NULL,
+      url         TEXT    NOT NULL,
+      description TEXT,
+      category_id INTEGER REFERENCES bookmark_categories(id) ON DELETE SET NULL,
+      created_by  INTEGER NOT NULL REFERENCES users(id),
+      status      TEXT    NOT NULL DEFAULT 'active' CHECK(status IN ('active','archived')),
+      view_count  INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS bookmark_favorites (
+      user_id     INTEGER NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
+      bookmark_id INTEGER NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, bookmark_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_status     ON bookmarks(status);
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_category   ON bookmarks(category_id);
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_created_by ON bookmarks(created_by);
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_bm_favorites_user    ON bookmark_favorites(user_id);
+    `,
+  ],
 ]
 export function indexEntry(db: Database.Database, entryId: number) {
   const entry = db
