@@ -418,8 +418,7 @@ export default function NotesPage() {
                   onChange={e => handleBodyChange(e.target.value)}
                   placeholder={canEdit ? 'Write your note here…' : ''}
                   readOnly={!canEdit}
-                  rows={12}
-                  className={`w-full text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent leading-relaxed resize-none ${!canEdit ? 'cursor-default select-text' : ''}`}
+                  className={`w-full h-full min-h-[200px] text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent leading-relaxed resize-none ${!canEdit ? 'cursor-default select-text' : ''}`}
                 />
               </div>
 
