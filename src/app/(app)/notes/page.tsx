@@ -260,7 +260,7 @@ export default function NotesPage() {
 
       <div className="flex gap-4 -mx-4 -my-7 px-4 py-4 overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
         {/* Note list sidebar */}
-        <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full">
+        <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full min-h-0">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none">
@@ -331,7 +331,7 @@ export default function NotesPage() {
         </div>
 
         {/* Editor pane */}
-        <div className="flex-1 min-w-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           {!selectedNote ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-3xl">📝</div>
