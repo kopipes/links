@@ -276,7 +276,16 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_reminders_expires_at ON reminders(expires_at);
     `,
   ],
+  [
+    '008_reminder_recurrence',
+    `
+    ALTER TABLE reminders ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'
+      CHECK(recurrence IN ('none','monthly','yearly'));
+    `,
+  ],
 ]
+
+/** Rebuild the FTS index for a single entry (call after insert/update) */
 export function indexEntry(db: Database.Database, entryId: number) {
   const entry = db
     .prepare('SELECT id, title, description FROM entries WHERE id = ?')

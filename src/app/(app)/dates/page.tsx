@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import type { Reminder, ReminderType } from '@/lib/reminder-queries'
+import type { Reminder, ReminderType, ReminderRecurrence } from '@/lib/reminder-queries'
 
 const TYPE_META: Record<ReminderType, { label: string; icon: string; color: string }> = {
   domain:       { label: 'Domain',       icon: '🌐', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -10,6 +10,10 @@ const TYPE_META: Record<ReminderType, { label: string; icon: string; color: stri
   ssl:          { label: 'SSL',          icon: '🔒', color: 'bg-green-50 text-green-700 border-green-200' },
   subscription: { label: 'Subscription', icon: '📋', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   other:        { label: 'Other',        icon: '📅', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+}
+
+const RECURRENCE_LABELS: Record<ReminderRecurrence, string> = {
+  none: '', monthly: '↻ Monthly', yearly: '↻ Yearly',
 }
 
 function urgencyClass(days: number): string {
@@ -46,6 +50,7 @@ function ReminderRow({
     type: reminder.type,
     expires_at: reminder.expires_at,
     notes: reminder.notes ?? '',
+    recurrence: reminder.recurrence ?? 'none',
   })
   const [saving, setSaving] = useState(false)
   const meta = TYPE_META[reminder.type]
@@ -57,7 +62,7 @@ function ReminderRow({
     const res = await fetch(`/api/reminders/${reminder.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name.trim(), type: form.type, expires_at: form.expires_at, notes: form.notes.trim() || null }),
+      body: JSON.stringify({ name: form.name.trim(), type: form.type, expires_at: form.expires_at, notes: form.notes.trim() || null, recurrence: form.recurrence }),
     })
     if (res.ok) { onUpdate(await res.json()); setEditing(false) }
     setSaving(false)
@@ -110,6 +115,15 @@ function ReminderRow({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. Auto-renews, contact person…" />
           </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Recurrence</label>
+            <select value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value as ReminderRecurrence })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="none">No repeat</option>
+              <option value="monthly">Every month</option>
+              <option value="yearly">Every year</option>
+            </select>
+          </div>
         </div>
         <div className="flex gap-2">
           <button type="submit" disabled={saving} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors">
@@ -137,9 +151,16 @@ function ReminderRow({
 
       {/* Name + notes */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${reminder.status === 'done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-          {reminder.name}
-        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className={`text-sm font-semibold ${reminder.status === 'done' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+            {reminder.name}
+          </p>
+          {reminder.recurrence !== 'none' && (
+            <span className="text-xs text-indigo-500 bg-indigo-50 border border-indigo-200 rounded-full px-2 py-0.5">
+              {RECURRENCE_LABELS[reminder.recurrence as ReminderRecurrence]}
+            </span>
+          )}
+        </div>
         {reminder.notes && (
           <p className="text-xs text-gray-400 truncate mt-0.5">{reminder.notes}</p>
         )}
@@ -201,7 +222,7 @@ export default function DatesPage() {
   const [statusFilter, setStatusFilter] = useState('active')
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({
-    name: '', type: 'domain' as ReminderType, expires_at: '', notes: '',
+    name: '', type: 'domain' as ReminderType, expires_at: '', notes: '', recurrence: 'none' as ReminderRecurrence,
   })
   const [addError, setAddError] = useState('')
   const [adding, setAdding] = useState(false)
@@ -244,7 +265,7 @@ export default function DatesPage() {
       const reminder: Reminder = await res.json()
       setReminders(prev => [reminder, ...prev])
       setShowAdd(false)
-      setAddForm({ name: '', type: 'domain', expires_at: '', notes: '' })
+      setAddForm({ name: '', type: 'domain', expires_at: '', notes: '', recurrence: 'none' })
     } catch (err: any) {
       setAddError(err.message)
     } finally {
@@ -327,6 +348,15 @@ export default function DatesPage() {
               <input value={addForm.notes} onChange={e => setAddForm({ ...addForm, notes: e.target.value })}
                 placeholder="e.g. Namecheap, auto-renew on"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Recurrence</label>
+              <select value={addForm.recurrence} onChange={e => setAddForm({ ...addForm, recurrence: e.target.value as ReminderRecurrence })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="none">No repeat</option>
+                <option value="monthly">Every month</option>
+                <option value="yearly">Every year</option>
+              </select>
             </div>
           </div>
           <div className="flex gap-2">
