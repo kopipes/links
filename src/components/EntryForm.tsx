@@ -33,7 +33,9 @@ export default function EntryForm({ initial }: Props) {
 
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [categoryId, setCategoryId] = useState<number | ''>(initial?.category_id ?? '')
+  const [categoryIds, setCategoryIds] = useState<number[]>(
+    initial?.categories?.map((c) => c.id) ?? (initial?.category_id ? [initial.category_id] : [])
+  )
   const [tags, setTags] = useState<string[]>(initial?.tags.map((t) => t.name) ?? [])
   const [tagInput, setTagInput] = useState('')
   const [tagSuggestions, setTagSuggestions] = useState<Tag[]>([])
@@ -147,7 +149,7 @@ export default function EntryForm({ initial }: Props) {
       const payload = {
         title: title.trim(),
         description: description.trim() || null,
-        category_id: categoryId || null,
+        category_ids: categoryIds,
         tags,
         links: links.map(({ _key, ...l }) => l),
       }
@@ -212,20 +214,40 @@ export default function EntryForm({ initial }: Props) {
         />
       </div>
 
-      {/* Category */}
+      {/* Categories — multi-select */}
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-        <select
-          id="category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">No category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Categories</label>
+        {categories.length === 0 ? (
+          <p className="text-xs text-gray-400">No categories yet. Ask an admin to add some.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {categories.map((c) => {
+              const checked = categoryIds.includes(c.id)
+              return (
+                <label
+                  key={c.id}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm cursor-pointer border transition-colors ${
+                    checked
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={() => {
+                      setCategoryIds(prev =>
+                        checked ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                      )
+                    }}
+                  />
+                  {c.name}
+                </label>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Tags */}

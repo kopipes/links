@@ -27,10 +27,14 @@ const EntryCard = memo(function EntryCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          {entry.category_name && (
-            <span className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-0.5 mb-1.5">
-              {entry.category_name}
-            </span>
+          {entry.categories && entry.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {entry.categories.map(c => (
+                <span key={c.id} className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-0.5">
+                  {c.name}
+                </span>
+              ))}
+            </div>
           )}
           <Link
             href={`/entries/${entry.id}`}

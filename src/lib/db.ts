@@ -283,6 +283,23 @@ const MIGRATIONS: [string, string][] = [
       CHECK(recurrence IN ('none','monthly','yearly'));
     `,
   ],
+  [
+    '009_multi_category',
+    `
+    -- Junction table for many-to-many entry<->category
+    CREATE TABLE IF NOT EXISTS entry_categories (
+      entry_id    INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+      category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+      PRIMARY KEY (entry_id, category_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_entry_categories_entry    ON entry_categories(entry_id);
+    CREATE INDEX IF NOT EXISTS idx_entry_categories_category ON entry_categories(category_id);
+
+    -- Migrate existing category_id data into junction table
+    INSERT OR IGNORE INTO entry_categories (entry_id, category_id)
+    SELECT id, category_id FROM entries WHERE category_id IS NOT NULL;
+    `,
+  ],
 ]
 
 /** Rebuild the FTS index for a single entry (call after insert/update) */

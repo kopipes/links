@@ -87,7 +87,8 @@ export interface Entry {
 }
 
 export interface EntryWithDetails extends Entry {
-  category_name: string | null
+  category_name: string | null  // kept for backward compat (first category)
+  categories: Category[]        // all categories
   creator_name: string
   tags: Tag[]
   links: EntryLink[]

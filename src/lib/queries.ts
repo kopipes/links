@@ -79,15 +79,38 @@ function batchLoadFavorites(
   return new Set(rows.map((r) => r.entry_id))
 }
 
+/** Batch-load categories for a set of entry IDs from junction table */
+function batchLoadCategories(db: Database.Database, entryIds: number[]): Map<number, Category[]> {
+  if (!entryIds.length) return new Map()
+  const placeholders = entryIds.map(() => '?').join(',')
+  const rows = db
+    .prepare(
+      `SELECT ec.entry_id, c.id, c.name
+       FROM entry_categories ec JOIN categories c ON c.id = ec.category_id
+       WHERE ec.entry_id IN (${placeholders})
+       ORDER BY ec.entry_id, c.name`
+    )
+    .all(...entryIds) as { entry_id: number; id: number; name: string }[]
+
+  const map = new Map<number, Category[]>()
+  for (const row of rows) {
+    if (!map.has(row.entry_id)) map.set(row.entry_id, [])
+    map.get(row.entry_id)!.push({ id: row.id, name: row.name })
+  }
+  return map
+}
+
 function hydrateEntry(
-  row: Entry & { category_name?: string | null; creator_name?: string },
+  row: Entry & { creator_name?: string },
+  categories: Category[],
   tags: Tag[],
   links: EntryLink[],
   is_favorited: boolean
 ): EntryWithDetails {
   return {
     ...row,
-    category_name: row.category_name ?? null,
+    category_name: categories[0]?.name ?? null,
+    categories,
     creator_name: row.creator_name ?? '',
     tags,
     links,
@@ -115,7 +138,10 @@ export function getEntries(
   const args: (string | number)[] = []
 
   if (params.category_id) {
-    baseWhere += ` AND e.category_id = ?`
+    baseWhere += ` AND EXISTS (
+      SELECT 1 FROM entry_categories ec
+      WHERE ec.entry_id = e.id AND ec.category_id = ?
+    )`
     args.push(params.category_id)
   }
 
@@ -205,27 +231,27 @@ export function getEntries(
 
   const rows = db
     .prepare(
-      `SELECT e.*, c.name as category_name, u.name as creator_name
+      `SELECT e.*, u.name as creator_name
        FROM entries e
-       LEFT JOIN categories c ON c.id = e.category_id
        LEFT JOIN users u ON u.id = e.created_by
        WHERE ${baseWhere}
        ORDER BY ${orderBy}
        LIMIT ?`
     )
-    .all(...args, limit + 1) as (Entry & { category_name: string | null; creator_name: string })[]
+    .all(...args, limit + 1) as (Entry & { creator_name: string })[]
 
   const hasMore = rows.length > limit
   if (hasMore) rows.pop()
 
-  // Batch load tags, links, favorites — 3 queries total regardless of page size
+  // Batch load categories, tags, links, favorites
   const entryIds = rows.map((r) => r.id)
+  const categoriesMap = batchLoadCategories(db, entryIds)
   const tagsMap = batchLoadTags(db, entryIds)
   const linksMap = batchLoadLinks(db, entryIds, isPrivileged)
   const favSet = userId ? batchLoadFavorites(db, entryIds, userId) : new Set<number>()
 
   const items = rows.map((r) =>
-    hydrateEntry(r, tagsMap.get(r.id) ?? [], linksMap.get(r.id) ?? [], favSet.has(r.id))
+    hydrateEntry(r, categoriesMap.get(r.id) ?? [], tagsMap.get(r.id) ?? [], linksMap.get(r.id) ?? [], favSet.has(r.id))
   )
 
   return {
@@ -244,13 +270,12 @@ export function getEntryById(
 
   const row = db
     .prepare(
-      `SELECT e.*, c.name as category_name, u.name as creator_name
+      `SELECT e.*, u.name as creator_name
        FROM entries e
-       LEFT JOIN categories c ON c.id = e.category_id
        LEFT JOIN users u ON u.id = e.created_by
        WHERE e.id = ? AND e.status != 'deleted'`
     )
-    .get(id) as (Entry & { category_name: string | null; creator_name: string }) | undefined
+    .get(id) as (Entry & { creator_name: string }) | undefined
 
   if (!row) return null
 
@@ -265,18 +290,19 @@ export function getEntryById(
   // Increment view count
   db.prepare('UPDATE entries SET view_count = view_count + 1 WHERE id = ?').run(id)
 
+  const categoriesMap = batchLoadCategories(db, [id])
   const tagsMap = batchLoadTags(db, [id])
   const linksMap = batchLoadLinks(db, [id], isPrivileged)
   const favSet = userId ? batchLoadFavorites(db, [id], userId) : new Set<number>()
 
-  return hydrateEntry(row, tagsMap.get(id) ?? [], linksMap.get(id) ?? [], favSet.has(id))
+  return hydrateEntry(row, categoriesMap.get(id) ?? [], tagsMap.get(id) ?? [], linksMap.get(id) ?? [], favSet.has(id))
 }
 
 export function createEntry(
   data: {
     title: string
     description?: string
-    category_id?: number | null
+    category_ids?: number[]
     created_by: number
     links: { url: string; label: string; source_type: string; visibility: string }[]
     tags: string[]
@@ -288,17 +314,21 @@ export function createEntry(
   const result = db.transaction(() => {
     const entry = db
       .prepare(
-        `INSERT INTO entries (title, description, category_id, created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO entries (title, description, created_by, updated_by)
+         VALUES (?, ?, ?, ?)
          RETURNING *`
       )
       .get(
         data.title,
         data.description ?? null,
-        data.category_id ?? null,
         data.created_by,
         data.created_by
       ) as Entry
+
+    // Insert into junction table
+    for (const catId of (data.category_ids ?? [])) {
+      db.prepare('INSERT OR IGNORE INTO entry_categories (entry_id, category_id) VALUES (?, ?)').run(entry.id, catId)
+    }
 
     for (let i = 0; i < data.links.length; i++) {
       const link = data.links[i]
@@ -311,10 +341,7 @@ export function createEntry(
 
     const tagIds = resolveOrCreateTags(db, data.tags)
     for (const tagId of tagIds) {
-      db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').run(
-        entry.id,
-        tagId
-      )
+      db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)').run(entry.id, tagId)
     }
 
     indexEntry(db, entry.id)
@@ -329,7 +356,7 @@ export function updateEntry(
   data: {
     title?: string
     description?: string | null
-    category_id?: number | null
+    category_ids?: number[]
     links?: { id?: number; url: string; label: string; source_type: string; sort_order?: number; visibility: string }[]
     tags?: string[]
     updated_by: number
@@ -339,12 +366,11 @@ export function updateEntry(
   const db = getDb()
 
   db.transaction(() => {
-    if (data.title !== undefined || data.description !== undefined || data.category_id !== undefined) {
+    if (data.title !== undefined || data.description !== undefined) {
       db.prepare(
         `UPDATE entries
          SET title = COALESCE(?, title),
              description = CASE WHEN ? IS NOT NULL THEN ? ELSE description END,
-             category_id = CASE WHEN ? IS NOT NULL THEN ? ELSE category_id END,
              updated_by = ?,
              updated_at = datetime('now')
          WHERE id = ?`
@@ -352,11 +378,17 @@ export function updateEntry(
         data.title ?? null,
         data.description !== undefined ? 1 : null,
         data.description ?? null,
-        data.category_id !== undefined ? 1 : null,
-        data.category_id ?? null,
         data.updated_by,
         id
       )
+    }
+
+    // Replace categories in junction table
+    if (data.category_ids !== undefined) {
+      db.prepare('DELETE FROM entry_categories WHERE entry_id = ?').run(id)
+      for (const catId of data.category_ids) {
+        db.prepare('INSERT OR IGNORE INTO entry_categories (entry_id, category_id) VALUES (?, ?)').run(id, catId)
+      }
     }
 
     if (data.links !== undefined) {

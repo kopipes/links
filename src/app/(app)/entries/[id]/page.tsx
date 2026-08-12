@@ -170,10 +170,14 @@ export default function EntryDetailPage() {
               <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2.5 py-0.5">Archived</span>
             )}
           </div>
-          {entry.category_name && (
-            <span className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-0.5 mb-2">
-              {entry.category_name}
-            </span>
+          {entry.categories && entry.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {entry.categories.map(c => (
+                <span key={c.id} className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-0.5">
+                  {c.name}
+                </span>
+              ))}
+            </div>
           )}
           <h1 className="text-2xl font-bold text-gray-900 leading-tight">{entry.title}</h1>
         </div>

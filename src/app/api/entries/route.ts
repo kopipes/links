@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const isPrivileged = user.role === 'admin' || user.role === 'curator'
     const body = await request.json()
 
-    const { title, description, category_id, links, tags } = body
+    const { title, description, category_ids, links, tags } = body
 
     if (!title?.trim()) return apiError(400, 'title is required')
     if (!Array.isArray(links) || links.length === 0) return apiError(400, 'at least one link is required')
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       {
         title: title.trim(),
         description: description?.trim() ?? undefined,
-        category_id: category_id ?? null,
+        category_ids: Array.isArray(category_ids) ? category_ids : [],
         created_by: user.sub,
         links,
         tags: Array.isArray(tags) ? tags : [],
