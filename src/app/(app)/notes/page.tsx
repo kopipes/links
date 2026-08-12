@@ -258,7 +258,14 @@ export default function NotesPage() {
         />
       )}
 
-      <div className="flex gap-4 -mx-4 -my-7 px-4 py-4 overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
+      <div className="flex gap-4" style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        padding: '1rem',
+      }}>
         {/* Note list sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full min-h-0">
           <div className="flex gap-2">

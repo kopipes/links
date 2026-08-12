@@ -32,7 +32,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex flex-col overflow-hidden bg-[#f8f9fc]">
       <Navbar />
       <ExpiryBanner />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
         <div className="max-w-6xl w-full mx-auto px-4 py-7">
           {children}
         </div>
