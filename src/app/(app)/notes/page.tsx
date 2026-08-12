@@ -258,14 +258,7 @@ export default function NotesPage() {
         />
       )}
 
-      <div className="flex gap-4" style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        padding: '1rem',
-      }}>
+      <div className="flex gap-4 h-full p-4">
         {/* Note list sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full min-h-0">
           <div className="flex gap-2">
@@ -439,7 +432,7 @@ export default function NotesPage() {
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
                     Images ({images.length})
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto max-h-64">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 overflow-y-auto max-h-32">
                     {images.map((img, idx) => (
                       <div
                         key={img.id}

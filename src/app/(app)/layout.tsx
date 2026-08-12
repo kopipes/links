@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { AuthProvider } from '@/lib/auth-context'
@@ -10,6 +10,8 @@ import ExpiryBanner from '@/components/ExpiryBanner'
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const isNotes = pathname === '/notes'
 
   useEffect(() => {
     if (!loading && !user) router.push('/login')
@@ -32,11 +34,19 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex flex-col overflow-hidden bg-[#f8f9fc]">
       <Navbar />
       <ExpiryBanner />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
-        <div className="max-w-6xl w-full mx-auto px-4 py-7">
+      {isNotes ? (
+        /* Notes page: flex-1 container, no scroll, no padding — notes manages its own layout */
+        <main className="flex-1 overflow-hidden">
           {children}
-        </div>
-      </main>
+        </main>
+      ) : (
+        /* All other pages: normal scrollable padded container */
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="max-w-6xl w-full mx-auto px-4 py-7">
+            {children}
+          </div>
+        </main>
+      )}
     </div>
   )
 }
