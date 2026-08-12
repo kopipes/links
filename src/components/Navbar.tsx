@@ -36,6 +36,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/entries', label: 'Browse' },
     { href: '/bookmarks', label: 'Bookmarks' },
+    { href: '/notes', label: 'Notes' },
     ...(user?.role === 'admin' || user?.role === 'curator'
       ? [{ href: '/entries/archived', label: 'Archived' }]
       : []),

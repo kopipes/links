@@ -229,6 +229,33 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_bm_favorites_user    ON bookmark_favorites(user_id);
     `,
   ],
+  [
+    '006_notes',
+    `
+    CREATE TABLE IF NOT EXISTS notes (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT    NOT NULL DEFAULT 'Untitled',
+      body       TEXT    NOT NULL DEFAULT '',
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      updated_by INTEGER REFERENCES users(id),
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS note_images (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id    INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+      filename   TEXT    NOT NULL,
+      original   TEXT    NOT NULL,
+      size       INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notes_created_by ON notes(created_by);
+    CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_note_images_note ON note_images(note_id);
+    `,
+  ],
 ]
 export function indexEntry(db: Database.Database, entryId: number) {
   const entry = db
