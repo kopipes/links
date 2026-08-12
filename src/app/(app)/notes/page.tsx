@@ -258,7 +258,7 @@ export default function NotesPage() {
         />
       )}
 
-      <div className="flex gap-4 h-full p-4">
+      <div className="flex gap-4 h-full p-4 max-w-6xl mx-auto w-full">
         {/* Note list sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full min-h-0">
           <div className="flex gap-2">
