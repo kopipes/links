@@ -16,6 +16,83 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
+// ─── Lightbox ────────────────────────────────────────────────────────────────
+function Lightbox({
+  img,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+}: {
+  img: NoteImage
+  onClose: () => void
+  onPrev: () => void
+  onNext: () => void
+  hasPrev: boolean
+  hasNext: boolean
+}) {
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft' && hasPrev) onPrev()
+      if (e.key === 'ArrowRight' && hasNext) onNext()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [hasPrev, hasNext, onClose, onPrev, onNext])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image preview"
+    >
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/70 hover:text-white w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-xl"
+        aria-label="Close"
+      >✕</button>
+
+      {/* Prev */}
+      {hasPrev && (
+        <button
+          onClick={e => { e.stopPropagation(); onPrev() }}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Previous image"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      )}
+
+      {/* Image */}
+      <div className="max-w-4xl max-h-[85vh] flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+        <img
+          src={`/api/notes/image/${img.filename}`}
+          alt={img.original}
+          className="max-w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
+        />
+        <p className="text-white/60 text-sm">{img.original}</p>
+      </div>
+
+      {/* Next */}
+      {hasNext && (
+        <button
+          onClick={e => { e.stopPropagation(); onNext() }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Next image"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M7 4l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function NotesPage() {
   const { user } = useAuth()
   const [notes, setNotes] = useState<Note[]>([])
@@ -33,7 +110,19 @@ export default function NotesPage() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Lightbox state
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+
   const selectedNote = notes.find(n => n.id === selectedId) ?? null
+  const images = selectedNote?.images ?? []
+
+  // Permission helpers
+  const isAdmin = user?.role === 'admin'
+  const isCurator = user?.role === 'curator'
+  const canEdit = selectedNote
+    ? (selectedNote.created_by === user?.id || isAdmin || isCurator)
+    : false
+  const canDelete = isAdmin
 
   function handleSearchInput(val: string) {
     setSearchInput(val)
@@ -49,7 +138,6 @@ export default function NotesPage() {
     if (res.ok) {
       const data: Note[] = await res.json()
       setNotes(data)
-      // If current selection got filtered out, clear it
       if (selectedId && !data.find(n => n.id === selectedId)) setSelectedId(null)
     }
   }, [q])
@@ -59,7 +147,6 @@ export default function NotesPage() {
     fetchNotes().finally(() => setLoading(false))
   }, [fetchNotes])
 
-  // Load note into editor when selected
   useEffect(() => {
     if (selectedNote) {
       setEditTitle(selectedNote.title)
@@ -67,8 +154,8 @@ export default function NotesPage() {
     }
   }, [selectedId])
 
-  // Auto-save with 800ms debounce
   function scheduleAutoSave(title: string, body: string) {
+    if (!canEdit) return
     if (saveTimeout) clearTimeout(saveTimeout)
     const t = setTimeout(async () => {
       if (!selectedId) return
@@ -85,11 +172,13 @@ export default function NotesPage() {
   }
 
   function handleTitleChange(val: string) {
+    if (!canEdit) return
     setEditTitle(val)
     scheduleAutoSave(val, editBody)
   }
 
   function handleBodyChange(val: string) {
+    if (!canEdit) return
     setEditBody(val)
     scheduleAutoSave(editTitle, val)
   }
@@ -106,13 +195,13 @@ export default function NotesPage() {
       setSelectedId(note.id)
       setEditTitle(note.title)
       setEditBody(note.body)
-      // Focus title after render
       setTimeout(() => document.getElementById('note-title')?.focus(), 50)
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Delete this note?')) return
+    if (!isAdmin) return
+    if (!confirm('Delete this note permanently?')) return
     await fetch(`/api/notes/${id}`, { method: 'DELETE' })
     setNotes(prev => prev.filter(n => n.id !== id))
     if (selectedId === id) setSelectedId(null)
@@ -120,7 +209,7 @@ export default function NotesPage() {
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !selectedId) return
+    if (!file || !selectedId || !canEdit) return
     e.target.value = ''
 
     setUploading(true)
@@ -146,199 +235,234 @@ export default function NotesPage() {
   }
 
   async function handleDeleteImage(imgId: number) {
-    if (!selectedId || !confirm('Remove this image?')) return
+    if (!selectedId || !canEdit) return
+    if (!confirm('Remove this image?')) return
     await fetch(`/api/notes/${selectedId}/images/${imgId}`, { method: 'DELETE' })
     setNotes(prev => prev.map(n =>
       n.id === selectedId ? { ...n, images: n.images.filter(i => i.id !== imgId) } : n
     ))
+    setLightboxIdx(null)
   }
 
-  const images = selectedNote?.images ?? []
-
   return (
-    <div className="flex gap-4 h-[calc(100vh-7rem)]">
-      {/* Note list sidebar */}
-      <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none">
-              <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            <input
-              type="search"
-              placeholder="Search notes…"
-              value={searchInput}
-              onChange={e => handleSearchInput(e.target.value)}
-              className="w-full border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-            />
-          </div>
-          <button
-            onClick={handleNewNote}
-            className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white w-8 h-8 rounded-lg flex items-center justify-center shadow-sm transition-colors"
-            aria-label="New note"
-            title="New note"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
+    <>
+      {/* Lightbox */}
+      {lightboxIdx !== null && images[lightboxIdx] && (
+        <Lightbox
+          img={images[lightboxIdx]}
+          onClose={() => setLightboxIdx(null)}
+          onPrev={() => setLightboxIdx(i => (i ?? 0) - 1)}
+          onNext={() => setLightboxIdx(i => (i ?? 0) + 1)}
+          hasPrev={lightboxIdx > 0}
+          hasNext={lightboxIdx < images.length - 1}
+        />
+      )}
 
-        {/* Note list */}
-        <div className="flex-1 overflow-y-auto space-y-1 pr-0.5">
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-white rounded-xl border border-gray-200 animate-pulse" />
-            ))
-          ) : notes.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-2xl mb-2">📝</p>
-              <p className="text-xs text-gray-400">{q ? 'No notes found.' : 'No notes yet.'}</p>
-              <button onClick={handleNewNote} className="mt-2 text-xs text-indigo-600 hover:underline">Create one →</button>
-            </div>
-          ) : (
-            notes.map(note => (
-              <div
-                key={note.id}
-                onClick={() => setSelectedId(note.id)}
-                className={`group relative cursor-pointer rounded-xl p-3 border transition-all duration-150 ${
-                  selectedId === note.id
-                    ? 'bg-indigo-50 border-indigo-200 shadow-sm'
-                    : 'bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm'
-                }`}
-              >
-                <p className="text-sm font-medium text-gray-900 truncate pr-5">
-                  {note.title || 'Untitled'}
-                </p>
-                <p className="text-xs text-gray-400 truncate mt-0.5">
-                  {note.body ? note.body.slice(0, 60) : (note.images.length ? `${note.images.length} image${note.images.length > 1 ? 's' : ''}` : 'Empty note')}
-                </p>
-                <p className="text-xs text-gray-300 mt-1">{timeAgo(note.updated_at)}</p>
-                <button
-                  onClick={e => { e.stopPropagation(); handleDelete(note.id) }}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-xs"
-                  aria-label="Delete note"
-                >✕</button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Editor pane */}
-      <div className="flex-1 min-w-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        {!selectedNote ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
-            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-3xl">📝</div>
-            <div>
-              <p className="text-gray-600 font-medium">Select a note to edit</p>
-              <p className="text-sm text-gray-400 mt-1">or create a new one</p>
+      <div className="flex gap-4 h-[calc(100vh-7rem)]">
+        {/* Note list sidebar */}
+        <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="search"
+                placeholder="Search notes…"
+                value={searchInput}
+                onChange={e => handleSearchInput(e.target.value)}
+                className="w-full border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+              />
             </div>
             <button
               onClick={handleNewNote}
-              className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-colors"
+              className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white w-8 h-8 rounded-lg flex items-center justify-center shadow-sm transition-colors"
+              aria-label="New note"
+              title="New note"
             >
-              + New note
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
             </button>
           </div>
-        ) : (
-          <>
-            {/* Toolbar */}
-            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+
+          {/* Note list */}
+          <div className="flex-1 overflow-y-auto space-y-1 pr-0.5">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-16 bg-white rounded-xl border border-gray-200 animate-pulse" />
+              ))
+            ) : notes.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-2xl mb-2">📝</p>
+                <p className="text-xs text-gray-400">{q ? 'No notes found.' : 'No notes yet.'}</p>
+                <button onClick={handleNewNote} className="mt-2 text-xs text-indigo-600 hover:underline">Create one →</button>
+              </div>
+            ) : (
+              notes.map(note => (
+                <div
+                  key={note.id}
+                  onClick={() => setSelectedId(note.id)}
+                  className={`group relative cursor-pointer rounded-xl p-3 border transition-all duration-150 ${
+                    selectedId === note.id
+                      ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+                      : 'bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm'
+                  }`}
                 >
-                  {uploading ? (
-                    <span className="w-3 h-3 border border-gray-400 border-t-indigo-600 rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
-                      <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-                      <circle cx="5.5" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M1 11l4-3 3 2.5 3-4 4 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                    </svg>
+                  <p className="text-sm font-medium text-gray-900 truncate pr-5">
+                    {note.title || 'Untitled'}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate mt-0.5">
+                    {note.body ? note.body.slice(0, 60) : (note.images.length ? `${note.images.length} image${note.images.length > 1 ? 's' : ''}` : 'Empty note')}
+                  </p>
+                  <p className="text-xs text-gray-300 mt-1">{timeAgo(note.updated_at)}</p>
+                  {isAdmin && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDelete(note.id) }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all text-xs"
+                      aria-label="Delete note"
+                    >✕</button>
                   )}
-                  {uploading ? 'Uploading…' : 'Add image'}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Editor pane */}
+        <div className="flex-1 min-w-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          {!selectedNote ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-3xl">📝</div>
+              <div>
+                <p className="text-gray-600 font-medium">Select a note to view</p>
+                <p className="text-sm text-gray-400 mt-1">or create a new one</p>
               </div>
-              <div className="flex items-center gap-2">
-                {saving && <span className="text-xs text-gray-400 animate-pulse">Saving…</span>}
-                <span className="text-xs text-gray-300">{timeAgo(selectedNote.updated_at)}</span>
-                <button
-                  onClick={() => handleDelete(selectedNote.id)}
-                  className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+              <button
+                onClick={handleNewNote}
+                className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-colors"
+              >
+                + New note
+              </button>
             </div>
-
-            {/* Title */}
-            <div className="px-5 pt-4 pb-2">
-              <input
-                id="note-title"
-                type="text"
-                value={editTitle}
-                onChange={e => handleTitleChange(e.target.value)}
-                placeholder="Title"
-                className="w-full text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent"
-              />
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 px-5 pb-4 overflow-y-auto">
-              <textarea
-                value={editBody}
-                onChange={e => handleBodyChange(e.target.value)}
-                placeholder="Write your note here…"
-                className="w-full h-full min-h-[200px] text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent resize-none leading-relaxed"
-              />
-            </div>
-
-            {/* Images */}
-            {images.length > 0 && (
-              <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
-                  Images ({images.length})
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {images.map(img => (
-                    <div key={img.id} className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                      <img
-                        src={`/api/notes/image/${img.filename}`}
-                        alt={img.original}
-                        className="w-full h-full object-cover"
+          ) : (
+            <>
+              {/* Toolbar */}
+              <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  {canEdit && (
+                    <>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {uploading ? (
+                          <span className="w-3 h-3 border border-gray-400 border-t-indigo-600 rounded-full animate-spin" />
+                        ) : (
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
+                            <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                            <circle cx="5.5" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                            <path d="M1 11l4-3 3 2.5 3-4 4 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                        {uploading ? 'Uploading…' : 'Add image'}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png"
+                        className="hidden"
+                        onChange={handleImageUpload}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                        <button
-                          onClick={() => handleDeleteImage(img.id)}
-                          className="opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-50 text-red-500 rounded-full w-8 h-8 flex items-center justify-center text-sm transition-all shadow"
-                          aria-label="Remove image"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/40 px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-all">
-                        {img.original}
-                      </p>
-                    </div>
-                  ))}
+                    </>
+                  )}
+                  {!canEdit && (
+                    <span className="text-xs text-gray-400 italic">View only</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {saving && <span className="text-xs text-gray-400 animate-pulse">Saving…</span>}
+                  <span className="text-xs text-gray-400">{selectedNote.creator_name}</span>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span className="text-xs text-gray-300">{timeAgo(selectedNote.updated_at)}</span>
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(selectedNote.id)}
+                      className="text-xs text-red-400 hover:text-red-600 border border-red-100 hover:border-red-300 px-2.5 py-1.5 rounded-lg transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </>
-        )}
+
+              {/* Title */}
+              <div className="px-5 pt-4 pb-2">
+                <input
+                  id="note-title"
+                  type="text"
+                  value={editTitle}
+                  onChange={e => handleTitleChange(e.target.value)}
+                  placeholder="Title"
+                  readOnly={!canEdit}
+                  className={`w-full text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent ${!canEdit ? 'cursor-default select-text' : ''}`}
+                />
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 px-5 pb-4 overflow-y-auto">
+                <textarea
+                  value={editBody}
+                  onChange={e => handleBodyChange(e.target.value)}
+                  placeholder={canEdit ? 'Write your note here…' : ''}
+                  readOnly={!canEdit}
+                  className={`w-full h-full min-h-[200px] text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent leading-relaxed ${canEdit ? 'resize-none' : 'resize-none cursor-default select-text'}`}
+                />
+              </div>
+
+              {/* Images */}
+              {images.length > 0 && (
+                <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+                    Images ({images.length})
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {images.map((img, idx) => (
+                      <div
+                        key={img.id}
+                        className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-zoom-in"
+                        onClick={() => setLightboxIdx(idx)}
+                      >
+                        <img
+                          src={`/api/notes/image/${img.filename}`}
+                          alt={img.original}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end justify-between p-2">
+                          {canEdit && (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeleteImage(img.id) }}
+                              className="opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-50 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs transition-all shadow ml-auto"
+                              aria-label="Remove image"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                        <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/40 px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-all">
+                          {img.original}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
