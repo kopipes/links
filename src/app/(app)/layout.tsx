@@ -29,11 +29,13 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   if (!user) return null
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8f9fc]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#f8f9fc]">
       <Navbar />
       <ExpiryBanner />
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-7">
-        {children}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl w-full mx-auto px-4 py-7">
+          {children}
+        </div>
       </main>
     </div>
   )

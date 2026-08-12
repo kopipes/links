@@ -258,7 +258,7 @@ export default function NotesPage() {
         />
       )}
 
-      <div className="flex gap-4 h-[calc(100vh-7rem)]">
+      <div className="flex gap-4 h-full" style={{ height: 'calc(100vh - 8rem)' }}>
         {/* Note list sidebar */}
         <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full">
           <div className="flex gap-2">
