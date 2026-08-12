@@ -256,6 +256,26 @@ const MIGRATIONS: [string, string][] = [
     CREATE INDEX IF NOT EXISTS idx_note_images_note ON note_images(note_id);
     `,
   ],
+  [
+    '007_reminders',
+    `
+    CREATE TABLE IF NOT EXISTS reminders (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT    NOT NULL,
+      type         TEXT    NOT NULL DEFAULT 'other' CHECK(type IN ('domain','hosting','ssl','subscription','other')),
+      expires_at   TEXT    NOT NULL,
+      notes        TEXT,
+      status       TEXT    NOT NULL DEFAULT 'active' CHECK(status IN ('active','done')),
+      created_by   INTEGER NOT NULL REFERENCES users(id),
+      updated_by   INTEGER REFERENCES users(id),
+      done_at      TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_reminders_status     ON reminders(status);
+    CREATE INDEX IF NOT EXISTS idx_reminders_expires_at ON reminders(expires_at);
+    `,
+  ],
 ]
 export function indexEntry(db: Database.Database, entryId: number) {
   const entry = db

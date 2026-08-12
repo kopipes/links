@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { AuthProvider } from '@/lib/auth-context'
 import Navbar from '@/components/Navbar'
+import ExpiryBanner from '@/components/ExpiryBanner'
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -30,6 +31,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#f8f9fc]">
       <Navbar />
+      <ExpiryBanner />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-7">
         {children}
       </main>

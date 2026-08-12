@@ -37,6 +37,7 @@ export default function Navbar() {
     { href: '/entries', label: 'Browse' },
     { href: '/bookmarks', label: 'Bookmarks' },
     { href: '/notes', label: 'Notes' },
+    { href: '/dates', label: 'Dates' },
     ...(user?.role === 'admin' || user?.role === 'curator'
       ? [{ href: '/entries/archived', label: 'Archived' }]
       : []),
