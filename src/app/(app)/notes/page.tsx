@@ -398,67 +398,71 @@ export default function NotesPage() {
                 </div>
               </div>
 
-              {/* Title */}
-              <div className="px-5 pt-4 pb-2">
-                <input
-                  id="note-title"
-                  type="text"
-                  value={editTitle}
-                  onChange={e => handleTitleChange(e.target.value)}
-                  placeholder="Title"
-                  readOnly={!canEdit}
-                  className={`w-full text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent ${!canEdit ? 'cursor-default select-text' : ''}`}
-                />
-              </div>
-
-              {/* Body */}
-              <div className="flex-1 px-5 pb-4 overflow-y-auto">
-                <textarea
-                  value={editBody}
-                  onChange={e => handleBodyChange(e.target.value)}
-                  placeholder={canEdit ? 'Write your note here…' : ''}
-                  readOnly={!canEdit}
-                  className={`w-full h-full min-h-[200px] text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent leading-relaxed ${canEdit ? 'resize-none' : 'resize-none cursor-default select-text'}`}
-                />
-              </div>
-
-              {/* Images */}
-              {images.length > 0 && (
-                <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
-                    Images ({images.length})
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {images.map((img, idx) => (
-                      <div
-                        key={img.id}
-                        className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-zoom-in"
-                        onClick={() => setLightboxIdx(idx)}
-                      >
-                        <img
-                          src={`/api/notes/image/${img.filename}`}
-                          alt={img.original}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end justify-between p-2">
-                          {canEdit && (
-                            <button
-                              onClick={e => { e.stopPropagation(); handleDeleteImage(img.id) }}
-                              className="opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-50 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs transition-all shadow ml-auto"
-                              aria-label="Remove image"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                        <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/40 px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-all">
-                          {img.original}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+              {/* Single scrollable content area — title + body + images */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Title */}
+                <div className="px-5 pt-4 pb-2">
+                  <input
+                    id="note-title"
+                    type="text"
+                    value={editTitle}
+                    onChange={e => handleTitleChange(e.target.value)}
+                    placeholder="Title"
+                    readOnly={!canEdit}
+                    className={`w-full text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent ${!canEdit ? 'cursor-default select-text' : ''}`}
+                  />
                 </div>
-              )}
+
+                {/* Body */}
+                <div className="px-5 pb-4">
+                  <textarea
+                    value={editBody}
+                    onChange={e => handleBodyChange(e.target.value)}
+                    placeholder={canEdit ? 'Write your note here…' : ''}
+                    readOnly={!canEdit}
+                    rows={12}
+                    className={`w-full text-sm text-gray-700 placeholder-gray-300 focus:outline-none bg-transparent leading-relaxed resize-none ${!canEdit ? 'cursor-default select-text' : ''}`}
+                  />
+                </div>
+
+                {/* Images */}
+                {images.length > 0 && (
+                  <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+                      Images ({images.length})
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {images.map((img, idx) => (
+                        <div
+                          key={img.id}
+                          className="group relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 cursor-zoom-in"
+                          onClick={() => setLightboxIdx(idx)}
+                        >
+                          <img
+                            src={`/api/notes/image/${img.filename}`}
+                            alt={img.original}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end justify-between p-2">
+                            {canEdit && (
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDeleteImage(img.id) }}
+                                className="opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-50 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs transition-all shadow ml-auto"
+                                aria-label="Remove image"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                          <p className="absolute bottom-0 left-0 right-0 text-xs text-white bg-black/40 px-2 py-1 truncate opacity-0 group-hover:opacity-100 transition-all">
+                            {img.original}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
