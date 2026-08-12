@@ -259,8 +259,8 @@ export default function NotesPage() {
       )}
 
       <div className="flex gap-4 h-full p-4 max-w-6xl mx-auto w-full">
-        {/* Note list sidebar */}
-        <div className="w-64 flex-shrink-0 flex flex-col gap-3 h-full min-h-0">
+        {/* Note list sidebar — hidden on mobile when a note is selected */}
+        <div className={`flex-shrink-0 flex flex-col gap-3 h-full min-h-0 w-full sm:w-64 ${selectedId ? 'hidden sm:flex' : 'flex'}`}>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" viewBox="0 0 16 16" fill="none">
@@ -330,8 +330,8 @@ export default function NotesPage() {
           </div>
         </div>
 
-        {/* Editor pane */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        {/* Editor pane — hidden on mobile when no note selected, full width on mobile */}
+        <div className={`min-w-0 min-h-0 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${selectedId ? 'flex flex-1' : 'hidden sm:flex sm:flex-1'}`}>
           {!selectedNote ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-3xl">📝</div>
@@ -351,6 +351,15 @@ export default function NotesPage() {
               {/* Toolbar */}
               <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
+                  {/* Back button — mobile only */}
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="sm:hidden flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors"
+                    aria-label="Back to notes"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Back
+                  </button>
                   {canEdit && (
                     <>
                       <button
