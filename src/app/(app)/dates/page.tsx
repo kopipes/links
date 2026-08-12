@@ -211,7 +211,7 @@ function ReminderRow({
 
 const FILTER_TABS = [
   { value: '', label: 'All' },
-  { value: 'active', label: 'Active' },
+  { value: 'active', label: 'Upcoming' },
   { value: 'done', label: 'Done' },
 ]
 
@@ -232,6 +232,7 @@ export default function DatesPage() {
 
   useEffect(() => {
     setLoading(true)
+    if (statusFilter === 'done') setShowAdd(false)
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     fetch(`/api/reminders?${params}`)
@@ -285,7 +286,7 @@ export default function DatesPage() {
           <h1 className="text-xl font-semibold text-gray-900">Dates & Reminders</h1>
           <p className="text-sm text-gray-400 mt-0.5">Track domain, hosting, SSL and subscription expiry dates</p>
         </div>
-        {isPrivileged && (
+        {isPrivileged && statusFilter !== 'done' && (
           <button onClick={() => setShowAdd(!showAdd)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition-colors">
             + Add
