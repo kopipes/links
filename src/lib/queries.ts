@@ -191,7 +191,8 @@ export function getEntries(
 
       if (!ftsIds.length) return { items: [], nextCursor: null, total: 0 }
 
-      const idList = ftsIds.map((r) => r.entry_id).join(',')
+      const idList = ftsIds.map((r) => Number(r.entry_id)).filter((id) => id > 0).join(',')
+      if (!idList) return { items: [], nextCursor: null, total: 0 }
       baseWhere += ` AND e.id IN (${idList})`
     }
   }
